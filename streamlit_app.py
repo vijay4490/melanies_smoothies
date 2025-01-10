@@ -5,7 +5,7 @@ import requests
 from snowflake.snowpark.functions import col
 
 # Write directly to the app
-st.title("Customize Your Smothie!! :cup_with_straw:")
+st.title("Customize Your Smoothie!! :cup_with_straw:")
 st.write(
     """Choose the Fruit to customize the Smothie!
     """)
@@ -22,6 +22,8 @@ pd_df = my_dataframe.to_pandas()
 # st.dataframe(pd_df)
 # stop()
 
+name_on_order = st.text_input("Name on Smoothie:",)
+st.write("The name on Smoothie will be:", name_on_order)
 
 ingredients_list = st.multiselect(
     "Choose your 5 ingredients:"
@@ -45,8 +47,8 @@ if ingredients_list:
         sf_df = st.dataframe(data = smoothiefroot_response.json(), use_container_width = True)
 
     # st.write(ingredients_string)
-    my_insert_stmt = """ insert into smoothies.public.orders(ingredients)
-            values ('""" + ingredients_string + """')"""
+    my_insert_stmt = """ insert into smoothies.public.orders(ingredients,name_on_order)
+            values ('""" + ingredients_string + """','""" + name_on_order + """')"""
 
     time_to_insert = st.button('Submit Order')
 
@@ -55,5 +57,27 @@ if ingredients_list:
     # if ingredients_string:
         session.sql(my_insert_stmt).collect()
         st.success('Your Smoothie is ordered!', icon="✅")
+
+my_dataframe2 = session.table("smoothies.public.orders").filter(col("ORDER_FILLED")==0).collect()
+editable_df = st.data_editor(my_dataframe2)
+#my_dataframe = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME'))
+# st.dataframe(data=my_dataframe, use_container_width=True)
+
+submitted = st.button('Submit')
+if submitted:
+    og_dataset = session.table("smoothies.public.orders")
+    edited_dataset = session.create_dataframe(editable_df)
+    try:
+        og_dataset.merge(edited_dataset
+                     , (og_dataset['ORDER_UID'] == edited_dataset['ORDER_UID'])
+                     , [when_matched().update({'ORDER_FILLED': edited_dataset['ORDER_FILLED']})]
+                    )
+        st.success('Someone clicked the button', icon = '👍')   
+    except:
+        st.write('Something went wrong')
+        
+else:
+    st.success('There is no pending order right now', icon = '👍')  
+    
 
 
